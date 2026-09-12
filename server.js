@@ -45,12 +45,12 @@ const transactions = [];
 
 // Volatility Markets Definition
 const markets = {
-  'R_10':   { name: 'Volatility 10 Index',       price: 1204.32, vol: 0.10, history: [] },
-  'R_25':   { name: 'Volatility 25 Index',       price: 2541.87, vol: 0.25, history: [] },
-  'R_50':   { name: 'Volatility 50 Index',       price: 4890.15, vol: 0.50, history: [] },
-  'R_75':   { name: 'Volatility 75 Index',       price: 6512.64, vol: 0.75, history: [] },
-  'R_100':  { name: 'Volatility 100 Index',      price: 9821.43, vol: 1.00, history: [] },
-  '1HZ10V': { name: 'Volatility 10 (1s) Index',  price: 798.69,  vol: 0.15, history: [] }
+  'R_10':   { name: 'Volatility 10 Index',      price: 1204.32, vol: 0.10, history: [] },
+  'R_25':   { name: 'Volatility 25 Index',      price: 2541.87, vol: 0.25, history: [] },
+  'R_50':   { name: 'Volatility 50 Index',      price: 4890.15, vol: 0.50, history: [] },
+  'R_75':   { name: 'Volatility 75 Index',      price: 6512.64, vol: 0.75, history: [] },
+  'R_100':  { name: 'Volatility 100 Index',     price: 9821.43, vol: 1.00, history: [] },
+  '1HZ10V': { name: 'Volatility 10 (1s) Index', price: 798.69,  vol: 0.15, history: [] }
 };
 
 // Seed initial history
@@ -669,7 +669,7 @@ app.get('/', (req, res) => {
       const node = document.createElement('div');
       node.id = 'digit-node-' + i;
       node.className = 'digit-badge bg-gray-950 border border-gray-800 rounded-lg p-2 text-center';
-      node.innerHTML = `<div class="text-sm font-bold text-gray-300">${i}</div>`;
+      node.innerHTML = '<div class="text-sm font-bold text-gray-300">' + i + '</div>';
       streamContainer.appendChild(node);
     }
 
@@ -699,7 +699,7 @@ app.get('/', (req, res) => {
 
     // WebSocket Connection Handling
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`\${protocol}//\${window.location.host}`);
+    const ws = new WebSocket(protocol + '//' + window.location.host);
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -721,7 +721,7 @@ app.get('/', (req, res) => {
           const digits = m.history.map(h => h.digit);
           const evens = digits.filter(d => d % 2 === 0).length;
           const evenPct = Math.round((evens / digits.length) * 100);
-          document.getElementById('digitRatioLabel').innerText = `Even: \${evenPct}% | Odd: \${100 - evenPct}%`;
+          document.getElementById('digitRatioLabel').innerText = 'Even: ' + evenPct + '% | Odd: ' + (100 - evenPct) + '%';
         }
       } else if (data.type === 'TRADE_SETTLED') {
         if (currentUser && data.trade.userId === currentUser.id) {
@@ -762,262 +762,193 @@ app.get('/', (req, res) => {
     }
 
     async function submitAuth() {
-      const email = document.getElementById('authEmail').value.trim();
-      const password = document.getElementById('authPassword').value.trim();
-      const mobile = document.getElementById('authMobile').value.trim();
+      const email = document.getElementById('authEmail').value;
+      const password = document.getElementById('authPassword').value;
+      const mobile = document.getElementById('authMobile').value;
 
       const endpoint = authMode === 'LOGIN' ? '/api/auth/login' : '/api/auth/register';
-      const bodyData = authMode === 'LOGIN' ? { email, password } : { email, mobile, password };
+      const body = authMode === 'LOGIN' ? { email, password } : { email, mobile, password };
 
       try {
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(bodyData)
+          body: JSON.stringify(body)
         });
         const data = await res.json();
-
         if (data.success) {
           currentUser = data.user;
           document.getElementById('authModal').classList.add('hidden');
           updateBalanceDisplay();
         } else {
-          alert(data.error || 'Authentication failed');
+          alert(data.error);
         }
-      } catch (err) {
-        alert('Server communication error during auth.');
+      } catch (e) {
+        alert('Authentication failed.');
       }
-    }
-
-    function updateBalanceDisplay() {
-      if (!currentUser) return;
-      const isDemo = currentAccountType === 'DEMO';
-      const bal = isDemo ? currentUser.demoBalance : currentUser.realBalance;
-      document.getElementById('balanceDisplay').innerText = `$${bal.toFixed(2)}`;
-      
-      const pl = currentUser.totalPL || 0;
-      const plEl = document.getElementById('totalPLDisplay');
-      plEl.innerText = `${pl >= 0 ? '+' : ''}$${pl.toFixed(2)}`;
-      plEl.className = `text-sm font-black ${pl >= 0 ? 'text-green-400' : 'text-red-400'}`;
     }
 
     function setAccountType(type) {
       currentAccountType = type;
-      const isDemo = type === 'DEMO';
-      
-      document.getElementById('btnAccountDemo').className = `px-3 py-1 text-xs font-bold rounded-md ${isDemo ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`;
-      document.getElementById('btnAccountReal').className = `px-3 py-1 text-xs font-bold rounded-md ${!isDemo ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`;
-      
-      document.getElementById('accountTypeLabel').innerText = isDemo ? 'Demo Account' : 'Real Account';
-      document.getElementById('accountTypeLabel').className = `text-[10px] uppercase font-bold ${isDemo ? 'text-blue-400' : 'text-green-400'}`;
-      document.getElementById('resetDemoBtn').style.display = isDemo ? 'block' : 'none';
-
+      document.getElementById('btnAccountDemo').className = type === 'DEMO' ? 'px-3 py-1 text-xs font-bold rounded-md bg-blue-600 text-white' : 'px-3 py-1 text-xs font-bold rounded-md text-gray-400 hover:text-white';
+      document.getElementById('btnAccountReal').className = type === 'REAL' ? 'px-3 py-1 text-xs font-bold rounded-md bg-green-600 text-white' : 'px-3 py-1 text-xs font-bold rounded-md text-gray-400 hover:text-white';
+      document.getElementById('accountTypeLabel').innerText = type === 'DEMO' ? 'Demo Account' : 'Real Account';
+      document.getElementById('accountTypeLabel').className = type === 'DEMO' ? 'text-[10px] uppercase font-bold text-blue-400' : 'text-[10px] uppercase font-bold text-green-400';
       updateBalanceDisplay();
+    }
+
+    function updateBalanceDisplay() {
+      if (!currentUser) return;
+      const bal = currentAccountType === 'DEMO' ? currentUser.demoBalance : currentUser.realBalance;
+      document.getElementById('balanceDisplay').innerText = '$' + bal.toFixed(2);
+      const pl = currentUser.totalPL || 0;
+      const plEl = document.getElementById('totalPLDisplay');
+      plEl.innerText = (pl >= 0 ? '+$' : '-$') + Math.abs(pl).toFixed(2);
+      plEl.className = pl >= 0 ? 'text-sm font-black text-green-400' : 'text-sm font-black text-red-400';
     }
 
     async function resetDemoBalance() {
       if (!currentUser) return;
-      try {
-        const res = await fetch('/api/auth/reset-demo', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: currentUser.id })
-        });
-        const data = await res.json();
-        if (data.success) {
-          currentUser.demoBalance = data.demoBalance;
-          updateBalanceDisplay();
-        }
-      } catch (err) {
-        alert('Failed to reset demo balance.');
+      const res = await fetch('/api/auth/reset-demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        currentUser.demoBalance = data.demoBalance;
+        updateBalanceDisplay();
       }
     }
 
     function changeMarket() {
-      activeSymbol = document.getElementById('marketSelect').value;
-      const titleEl = document.getElementById('activeMarketTitle');
-      const selectEl = document.getElementById('marketSelect');
-      titleEl.innerText = selectEl.options[selectEl.selectedIndex].text;
+      const select = document.getElementById('marketSelect');
+      activeSymbol = select.value;
+      document.getElementById('activeMarketTitle').innerText = select.options[select.selectedIndex].text;
     }
 
     function updateTradeForm() {
       const type = document.getElementById('tradeTypeSelect').value;
-      const digitWrapper = document.getElementById('digitTargetWrapper');
-      const buttonsContainer = document.getElementById('actionButtonsContainer');
+      const wrapper = document.getElementById('digitTargetWrapper');
+      const container = document.getElementById('actionButtonsContainer');
 
       if (type === 'EVEN') {
-        digitWrapper.classList.add('hidden');
-        buttonsContainer.innerHTML = `
+        wrapper.classList.add('hidden');
+        container.innerHTML = \`
           <button onclick="executeTradeWithSide('EVEN')" class="bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-black text-sm uppercase">EVEN</button>
           <button onclick="executeTradeWithSide('ODD')" class="bg-red-600 hover:bg-red-500 py-3 rounded-lg font-black text-sm uppercase">ODD</button>
-        `;
+        \`;
       } else {
-        digitWrapper.classList.remove('hidden');
-        buttonsContainer.innerHTML = `
-          <button onclick="executeTradeWithSide('OVER')" class="bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-black text-sm uppercase">OVER</button>
-          <button onclick="executeTradeWithSide('UNDER')" class="bg-red-600 hover:bg-red-500 py-3 rounded-lg font-black text-sm uppercase">UNDER</button>
-        `;
+        wrapper.classList.remove('hidden');
+        container.innerHTML = \`
+          <button onclick="executeTradeWithSide('OVER')" class="bg-green-600 hover:bg-green-500 py-3 rounded-lg font-black text-sm uppercase">OVER</button>
+          <button onclick="executeTradeWithSide('UNDER')" class="bg-amber-600 hover:bg-amber-500 py-3 rounded-lg font-black text-sm uppercase">UNDER</button>
+        \`;
       }
       updateCalculations();
     }
 
     function updateCalculations() {
       const stake = parseFloat(document.getElementById('stakeInput').value) || 0;
-      document.getElementById('summaryStake').innerText = `$${stake.toFixed(2)}`;
-
-      const tradeType = document.getElementById('tradeTypeSelect').value;
-      let rate = 0.80;
-
-      if (tradeType === 'OVER_UNDER') {
-        const digit = parseInt(document.getElementById('targetDigitInput').value, 10) || 0;
-        if (digit === 1 || digit === 9) rate = 0.30;
-        else rate = 0.50;
-      }
-
-      const payout = stake + (stake * rate);
-      document.getElementById('summaryPayout').innerText = `$${payout.toFixed(2)} (${Math.round(rate * 100)}%)`;
-    }
-
-    async function executeTradeWithSide(side) {
-      if (!currentUser) return alert('Please log in first.');
-
-      autoTradeSide = side;
-      const stake = document.getElementById('stakeInput').value;
-      const duration = document.getElementById('durationInput').value;
-      const targetDigit = document.getElementById('targetDigitInput').value;
-
-      try {
-        const res = await fetch('/api/trade/execute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: currentUser.id,
-            accountType: currentAccountType,
-            symbol: activeSymbol,
-            tradeType: side,
-            stake,
-            durationSeconds: duration,
-            targetDigit
-          })
-        });
-
-        const data = await res.json();
-        if (!data.success) {
-          alert(data.error);
-          autoTradeActive = false;
-          document.getElementById('autoTradeToggle').checked = false;
-        } else {
-          currentUser.demoBalance = data.demoBalance;
-          currentUser.realBalance = data.realBalance;
-          currentUser.totalPL = data.totalPL;
-          updateBalanceDisplay();
-        }
-      } catch (err) {
-        alert('Error placing trade execution.');
-      }
+      document.getElementById('summaryStake').innerText = '$' + stake.toFixed(2);
+      document.getElementById('summaryPayout').innerText = '$' + (stake * 1.8).toFixed(2) + ' (80%)';
     }
 
     function toggleAutoTrade() {
       autoTradeActive = document.getElementById('autoTradeToggle').checked;
-      document.getElementById('autoTradeSettings').classList.toggle('hidden', !autoTradeActive);
-      
+      const settings = document.getElementById('autoTradeSettings');
+      settings.classList.toggle('hidden', !autoTradeActive);
       if (autoTradeActive) {
         autoTradeRemaining = parseInt(document.getElementById('autoTradeRuns').value, 10) || 5;
         document.getElementById('autoTradeStatus').innerText = autoTradeRemaining;
-        executeTradeWithSide(autoTradeSide);
       }
     }
 
     async function runAiScan() {
-      try {
-        const res = await fetch('/api/ai/deep-scan');
-        const data = await res.json();
-        if (data.success) {
-          const r = data.recommendation;
-          alert(`⚡ AI RECOMMENDATION:\nMarket: ${r.name}\nContract: ${r.bestContract}\nConfidence: ${r.confidence}%`);
-          document.getElementById('marketSelect').value = r.symbol;
-          changeMarket();
-        }
-      } catch (err) {
-        alert('AI Deep Scanner offline.');
+      const res = await fetch('/api/ai/deep-scan');
+      const data = await res.json();
+      if (data.success) {
+        const rec = data.recommendation;
+        alert('AI Scanner Recommendation:\\nSymbol: ' + rec.name + '\\nBest Contract: ' + rec.bestContract + '\\nConfidence: ' + rec.confidence + '%');
       }
+    }
+
+    async function executeTradeWithSide(side) {
+      if (!currentUser) return alert('Please log in first.');
+      autoTradeSide = side;
+
+      const stake = document.getElementById('stakeInput').value;
+      const duration = document.getElementById('durationInput').value;
+      const targetDigit = document.getElementById('targetDigitInput').value;
+
+      const res = await fetch('/api/trade/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          accountType: currentAccountType,
+          symbol: activeSymbol,
+          tradeType: side,
+          stake,
+          durationSeconds: duration,
+          targetDigit
+        })
+      });
+
+      const data = await res.json();
+      if (!data.success) alert(data.error);
     }
 
     function logTradeResult(trade) {
       const log = document.getElementById('tradesLog');
       const item = document.createElement('div');
       const isWin = trade.status === 'WIN';
-      
-      item.className = `p-2 rounded-lg text-xs font-bold flex justify-between items-center ${isWin ? 'bg-green-950/40 border border-green-800/50 text-green-300' : 'bg-red-950/40 border border-red-800/50 text-red-300'}`;
-      item.innerHTML = `
-        <div>
-          <span>${trade.symbolName} [${trade.tradeType}]</span>
-          <div class="text-[10px] opacity-75">Digit: ${trade.exitDigit}</div>
-        </div>
-        <div class="text-right">
-          <div>${isWin ? '+' : ''}$${trade.netResult.toFixed(2)}</div>
-          <div class="text-[9px] uppercase">${trade.status}</div>
-        </div>
-      `;
+      item.className = 'p-2 rounded text-xs flex justify-between border ' + (isWin ? 'bg-green-950/40 border-green-800 text-green-300' : 'bg-red-950/40 border-red-800 text-red-300');
+      item.innerHTML = '<span>' + trade.tradeType + ' ($' + trade.stake + ')</span><span class="font-bold">' + (isWin ? '+$' + trade.netResult.toFixed(2) : '-$' + Math.abs(trade.netResult).toFixed(2)) + '</span>';
       log.prepend(item);
     }
 
-    // Modal Operations
     function openDepositModal() {
-      if (!currentUser) return alert('Log in required.');
+      if (!currentUser) return alert('Log in first');
       document.getElementById('depositMobileDisplay').value = currentUser.mobile;
       document.getElementById('depositModal').classList.remove('hidden');
     }
-
-    function closeDepositModal() {
-      document.getElementById('depositModal').classList.add('hidden');
-    }
+    function closeDepositModal() { document.getElementById('depositModal').classList.add('hidden'); }
 
     async function processStkPushDeposit() {
       const amount = document.getElementById('depositAmount').value;
-      try {
-        const res = await fetch('/api/wallet/stk-push', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: currentUser.id, amount })
-        });
-        const data = await res.json();
-        alert(data.message || data.error);
-        closeDepositModal();
-      } catch (err) {
-        alert('Deposit process error.');
-      }
+      const res = await fetch('/api/wallet/stk-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.id, amount })
+      });
+      const data = await res.json();
+      alert(data.message || data.error);
+      if (data.success) closeDepositModal();
     }
 
     function openWithdrawModal() {
-      if (!currentUser) return alert('Log in required.');
+      if (!currentUser) return alert('Log in first');
       document.getElementById('withdrawMobileDisplay').value = currentUser.mobile;
       document.getElementById('withdrawModal').classList.remove('hidden');
     }
-
-    function closeWithdrawModal() {
-      document.getElementById('withdrawModal').classList.add('hidden');
-    }
+    function closeWithdrawModal() { document.getElementById('withdrawModal').classList.add('hidden'); }
 
     async function processWithdrawal() {
       const amount = document.getElementById('withdrawAmount').value;
-      try {
-        const res = await fetch('/api/wallet/withdraw', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: currentUser.id, amount })
-        });
-        const data = await res.json();
-        if (data.success) {
-          currentUser.realBalance = data.realBalance;
-          updateBalanceDisplay();
-          alert(data.message);
-          closeWithdrawModal();
-        } else {
-          alert(data.error);
-        }
-      } catch (err) {
-        alert('Withdrawal process error.');
+      const res = await fetch('/api/wallet/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.id, amount })
+      });
+      const data = await res.json();
+      if (data.success) {
+        currentUser.realBalance = data.realBalance;
+        updateBalanceDisplay();
+        alert(data.message);
+        closeWithdrawModal();
+      } else {
+        alert(data.error);
       }
     }
   </script>
@@ -1026,13 +957,7 @@ app.get('/', (req, res) => {
   `);
 });
 
-// -------------------------------------------------------------
-// SERVER INITIATION
-// -------------------------------------------------------------
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`=================================================`);
-  console.log(` TraderScheme Workstation Live on Port ${PORT}`);
-  console.log(` WebSocket Server Active & Ready`);
-  console.log(`=================================================`);
+  console.log(`Server running on port ${PORT}`);
 });
