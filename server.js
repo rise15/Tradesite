@@ -10,7 +10,7 @@ const wss = new WebSocket.Server({ server });
 app.use(express.json());
 
 // -------------------------------------------------------------
-// SAFARICOM DARAJA M-PESA CONFIGURATION (Loaded from environment variables)
+// SAFARICOM DARAJA M-PESA CONFIGURATION
 // -------------------------------------------------------------
 const MPESA_CONFIG = {
   consumerKey: process.env.DARAJA_CONSUMER_KEY,
@@ -37,7 +37,7 @@ async function getMpesaToken() {
 }
 
 // -------------------------------------------------------------
-// In-Memory Database
+// IN-MEMORY DATABASE
 // -------------------------------------------------------------
 const users = [];
 const trades = [];
@@ -669,7 +669,7 @@ app.get('/', (req, res) => {
       const node = document.createElement('div');
       node.id = 'digit-node-' + i;
       node.className = 'digit-badge bg-gray-950 border border-gray-800 rounded-lg p-2 text-center';
-      node.innerHTML = `<div class="text-sm font-bold text-gray-300">${i}</div>`;
+      node.innerHTML = \`<div class="text-sm font-bold text-gray-300">\${i}</div>\`;
       streamContainer.appendChild(node);
     }
 
@@ -699,7 +699,7 @@ app.get('/', (req, res) => {
 
     // WebSocket Connection Handling
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}`);
+    const ws = new WebSocket(\`\${protocol}//\${window.location.host}\`);
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -721,7 +721,7 @@ app.get('/', (req, res) => {
           const digits = m.history.map(h => h.digit);
           const evens = digits.filter(d => d % 2 === 0).length;
           const evenPct = Math.round((evens / digits.length) * 100);
-          document.getElementById('digitRatioLabel').innerText = `Even: ${evenPct}% | Odd: ${100 - evenPct}%`;
+          document.getElementById('digitRatioLabel').innerText = \`Even: \${evenPct}% | Odd: \${100 - evenPct}%\`;
         }
       } else if (data.type === 'TRADE_SETTLED') {
         if (currentUser && data.trade.userId === currentUser.id) {
@@ -763,54 +763,47 @@ app.get('/', (req, res) => {
 
     async function submitAuth() {
       const email = document.getElementById('authEmail').value;
-      const password = document.getElementById('authPassword').value;
       const mobile = document.getElementById('authMobile').value;
-
+      const password = document.getElementById('authPassword').value;
       const endpoint = authMode === 'LOGIN' ? '/api/auth/login' : '/api/auth/register';
-      const body = authMode === 'LOGIN' ? { email, password } : { email, password, mobile };
 
-      try {
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        const data = await res.json();
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, mobile, password })
+      });
 
-        if (data.success) {
-          currentUser = data.user;
-          document.getElementById('authModal').classList.add('hidden');
-          updateBalanceDisplay();
-        } else {
-          alert(data.error || 'Authentication failed');
-        }
-      } catch (e) {
-        alert('Server Connection Error');
+      const data = await res.json();
+      if (data.success) {
+        currentUser = data.user;
+        document.getElementById('authModal').classList.add('hidden');
+        document.getElementById('depositMobileDisplay').value = currentUser.mobile;
+        document.getElementById('withdrawMobileDisplay').value = currentUser.mobile;
+        updateBalanceDisplay();
+      } else {
+        alert(data.error || 'Authentication failed');
       }
-    }
-
-    function setAccountType(type) {
-      currentAccountType = type;
-      const isDemo = type === 'DEMO';
-      document.getElementById('btnAccountDemo').className = isDemo ? "px-3 py-1 text-xs font-bold rounded-md bg-blue-600 text-white" : "px-3 py-1 text-xs font-bold rounded-md text-gray-400 hover:text-white";
-      document.getElementById('btnAccountReal').className = !isDemo ? "px-3 py-1 text-xs font-bold rounded-md bg-green-600 text-white" : "px-3 py-1 text-xs font-bold rounded-md text-gray-400 hover:text-white";
-      document.getElementById('accountTypeLabel').innerText = isDemo ? "Demo Account" : "Real Account";
-      document.getElementById('accountTypeLabel').className = isDemo ? "text-[10px] uppercase font-bold text-blue-400" : "text-[10px] uppercase font-bold text-green-400";
-      updateBalanceDisplay();
     }
 
     function updateBalanceDisplay() {
       if (!currentUser) return;
-      const isDemo = currentAccountType === 'DEMO';
-      const bal = isDemo ? currentUser.demoBalance : currentUser.realBalance;
-      const balEl = document.getElementById('balanceDisplay');
-      balEl.innerText = '$' + bal.toFixed(2);
-      balEl.className = isDemo ? "text-base font-black text-green-400" : "text-base font-black text-amber-400";
+      const bal = currentAccountType === 'DEMO' ? currentUser.demoBalance : currentUser.realBalance;
+      document.getElementById('balanceDisplay').innerText = '$' + bal.toFixed(2);
+      document.getElementById('totalPLDisplay').innerText = '$' + (currentUser.totalPL || 0).toFixed(2);
+    }
 
-      const pl = currentUser.totalPL || 0;
-      const plEl = document.getElementById('totalPLDisplay');
-      plEl.innerText = (pl >= 0 ? '+' : '') + '$' + pl.toFixed(2);
-      plEl.className = pl >= 0 ? "text-sm font-black text-green-400" : "text-sm font-black text-red-400";
+    function setAccountType(type) {
+      currentAccountType = type;
+      document.getElementById('accountTypeLabel').innerText = type === 'DEMO' ? 'Demo Account' : 'Real Account';
+      document.getElementById('btnAccountDemo').className = type === 'DEMO' ? 'px-3 py-1 text-xs font-bold rounded-md bg-blue-600 text-white' : 'px-3 py-1 text-xs font-bold rounded-md text-gray-400 hover:text-white';
+      document.getElementById('btnAccountReal').className = type === 'REAL' ? 'px-3 py-1 text-xs font-bold rounded-md bg-green-600 text-white' : 'px-3 py-1 text-xs font-bold rounded-md text-gray-400 hover:text-white';
+      updateBalanceDisplay();
+    }
+
+    function changeMarket() {
+      activeSymbol = document.getElementById('marketSelect').value;
+      const sel = document.getElementById('marketSelect');
+      document.getElementById('activeMarketTitle').innerText = sel.options[sel.selectedIndex].text;
     }
 
     async function resetDemoBalance() {
@@ -827,127 +820,97 @@ app.get('/', (req, res) => {
       }
     }
 
-    function changeMarket() {
-      activeSymbol = document.getElementById('marketSelect').value;
-      const sel = document.getElementById('marketSelect');
-      document.getElementById('activeMarketTitle').innerText = sel.options[sel.selectedIndex].text;
-    }
-
     function updateTradeForm() {
       const type = document.getElementById('tradeTypeSelect').value;
-      const wrapper = document.getElementById('digitTargetWrapper');
-      const btnContainer = document.getElementById('actionButtonsContainer');
+      const container = document.getElementById('actionButtonsContainer');
+      const targetWrapper = document.getElementById('digitTargetWrapper');
 
       if (type === 'EVEN') {
-        wrapper.classList.add('hidden');
-        btnContainer.innerHTML = `
+        targetWrapper.classList.add('hidden');
+        container.innerHTML = \`
           <button onclick="executeTradeWithSide('EVEN')" class="bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-black text-sm uppercase">EVEN</button>
           <button onclick="executeTradeWithSide('ODD')" class="bg-red-600 hover:bg-red-500 py-3 rounded-lg font-black text-sm uppercase">ODD</button>
-        `;
+        \`;
       } else {
-        wrapper.classList.remove('hidden');
-        btnContainer.innerHTML = `
-          <button onclick="executeTradeWithSide('OVER')" class="bg-emerald-600 hover:bg-emerald-500 py-3 rounded-lg font-black text-sm uppercase">OVER</button>
-          <button onclick="executeTradeWithSide('UNDER')" class="bg-rose-600 hover:bg-rose-500 py-3 rounded-lg font-black text-sm uppercase">UNDER</button>
-        `;
+        targetWrapper.classList.remove('hidden');
+        container.innerHTML = \`
+          <button onclick="executeTradeWithSide('OVER')" class="bg-green-600 hover:bg-green-500 py-3 rounded-lg font-black text-sm uppercase">OVER</button>
+          <button onclick="executeTradeWithSide('UNDER')" class="bg-yellow-600 hover:bg-yellow-500 py-3 rounded-lg font-black text-sm uppercase">UNDER</button>
+        \`;
       }
       updateCalculations();
     }
 
     function updateCalculations() {
       const stake = parseFloat(document.getElementById('stakeInput').value) || 0;
-      const type = document.getElementById('tradeTypeSelect').value;
-      const targetDigit = parseInt(document.getElementById('targetDigitInput').value, 10);
-
-      let payoutRate = 0.80;
-      if (type === 'OVER_UNDER') {
-        if (targetDigit === 1 || targetDigit === 9) payoutRate = 0.30;
-        else payoutRate = 0.50;
-      }
-
-      const payout = stake + (stake * payoutRate);
       document.getElementById('summaryStake').innerText = '$' + stake.toFixed(2);
-      document.getElementById('summaryPayout').innerText = '$' + payout.toFixed(2) + ' (' + (payoutRate * 100) + '%)';
-    }
-
-    function toggleAutoTrade() {
-      autoTradeActive = document.getElementById('autoTradeToggle').checked;
-      document.getElementById('autoTradeSettings').classList.toggle('hidden', !autoTradeActive);
-      if (autoTradeActive) {
-        autoTradeRemaining = parseInt(document.getElementById('autoTradeRuns').value, 10) || 5;
-        document.getElementById('autoTradeStatus').innerText = autoTradeRemaining;
-      }
+      document.getElementById('summaryPayout').innerText = '$' + (stake * 1.8).toFixed(2) + ' (80%)';
     }
 
     async function executeTradeWithSide(side) {
-      if (!currentUser) return alert('Please log in first!');
-      autoTradeSide = side;
-
+      if (!currentUser) return alert('Please log in to trade.');
+      const stake = parseFloat(document.getElementById('stakeInput').value);
+      const durationSeconds = parseInt(document.getElementById('durationInput').value, 10);
+      const targetDigit = parseInt(document.getElementById('targetDigitInput').value, 10);
       const tradeTypeSelect = document.getElementById('tradeTypeSelect').value;
-      const stake = document.getElementById('stakeInput').value;
-      const durationSeconds = document.getElementById('durationInput').value;
-      const targetDigit = document.getElementById('targetDigitInput').value;
 
-      const payload = {
-        userId: currentUser.id,
-        accountType: currentAccountType,
-        symbol: activeSymbol,
-        tradeType: tradeTypeSelect === 'EVEN' ? side : side,
-        stake,
-        durationSeconds,
-        targetDigit: tradeTypeSelect === 'OVER_UNDER' ? targetDigit : undefined
-      };
+      const tradeType = tradeTypeSelect === 'EVEN' ? side : side;
 
-      try {
-        const res = await fetch('/api/trade/execute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (!data.success) alert(data.error);
-      } catch (e) {
-        alert('Failed to place trade');
-      }
+      const res = await fetch('/api/trade/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          accountType: currentAccountType,
+          symbol: activeSymbol,
+          tradeType,
+          stake,
+          durationSeconds,
+          targetDigit
+        })
+      });
+
+      const data = await res.json();
+      if (!data.success) alert(data.error);
     }
 
     function logTradeResult(trade) {
       const log = document.getElementById('tradesLog');
       const item = document.createElement('div');
       const isWin = trade.status === 'WIN';
-      item.className = `p-2 rounded text-xs flex justify-between border ${isWin ? 'bg-green-950/40 border-green-800/50 text-green-300' : 'bg-red-950/40 border-red-800/50 text-red-300'}`;
-      item.innerHTML = `
-        <div>
-          <span class="font-bold">${trade.tradeType}</span> (${trade.symbol})
-          <div class="text-[10px] opacity-75">Digit: ${trade.exitDigit}</div>
-        </div>
-        <div class="text-right font-black">
-          ${isWin ? '+' : ''}$${trade.netResult.toFixed(2)}
-        </div>
-      `;
+      item.className = \`p-2 rounded text-xs flex justify-between \${isWin ? 'bg-green-950/60 text-green-300 border border-green-800' : 'bg-red-950/60 text-red-300 border border-red-800'}\`;
+      item.innerHTML = \`
+        <span>\${trade.symbolName} (\${trade.tradeType})</span>
+        <span class="font-bold">\${isWin ? '+$' + trade.netResult.toFixed(2) : '-$' + Math.abs(trade.netResult).toFixed(2)}</span>
+      \`;
       log.prepend(item);
+    }
+
+    function toggleAutoTrade() {
+      autoTradeActive = document.getElementById('autoTradeToggle').checked;
+      document.getElementById('autoTradeSettings').classList.toggle('hidden', !autoTradeActive);
+      if (autoTradeActive) {
+        autoTradeRemaining = parseInt(document.getElementById('autoTradeRuns').value, 10);
+        document.getElementById('autoTradeStatus').innerText = autoTradeRemaining;
+        executeTradeWithSide(autoTradeSide);
+      }
     }
 
     async function runAiScan() {
       const res = await fetch('/api/ai/deep-scan');
       const data = await res.json();
       if (data.success) {
-        const rec = data.recommendation;
-        alert(`⚡ AI RECOMMENDATION:\n\nMarket: ${rec.name}\nContract: ${rec.bestContract}\nConfidence: ${rec.confidence}%`);
+        alert(\`AI Scan Result:\\nBest Market: \${data.recommendation.name}\\nRecommendation: \${data.recommendation.bestContract}\\nConfidence: \${data.recommendation.confidence}%\`);
       }
     }
 
-    function openDepositModal() {
-      if (!currentUser) return alert('Please log in first!');
-      document.getElementById('depositMobileDisplay').value = currentUser.mobile;
-      document.getElementById('depositModal').classList.remove('hidden');
-    }
-
-    function closeDepositModal() {
-      document.getElementById('depositModal').classList.add('hidden');
-    }
+    function openDepositModal() { document.getElementById('depositModal').classList.remove('hidden'); }
+    function closeDepositModal() { document.getElementById('depositModal').classList.add('hidden'); }
+    function openWithdrawModal() { document.getElementById('withdrawModal').classList.remove('hidden'); }
+    function closeWithdrawModal() { document.getElementById('withdrawModal').classList.add('hidden'); }
 
     async function processStkPushDeposit() {
+      if (!currentUser) return;
       const amount = document.getElementById('depositAmount').value;
       const res = await fetch('/api/wallet/stk-push', {
         method: 'POST',
@@ -956,20 +919,11 @@ app.get('/', (req, res) => {
       });
       const data = await res.json();
       alert(data.message || data.error);
-      if (data.success) closeDepositModal();
-    }
-
-    function openWithdrawModal() {
-      if (!currentUser) return alert('Please log in first!');
-      document.getElementById('withdrawMobileDisplay').value = currentUser.mobile;
-      document.getElementById('withdrawModal').classList.remove('hidden');
-    }
-
-    function closeWithdrawModal() {
-      document.getElementById('withdrawModal').classList.add('hidden');
+      closeDepositModal();
     }
 
     async function processWithdrawal() {
+      if (!currentUser) return;
       const amount = document.getElementById('withdrawAmount').value;
       const res = await fetch('/api/wallet/withdraw', {
         method: 'POST',
@@ -981,8 +935,8 @@ app.get('/', (req, res) => {
       if (data.success) {
         currentUser.realBalance = data.realBalance;
         updateBalanceDisplay();
-        closeWithdrawModal();
       }
+      closeWithdrawModal();
     }
   </script>
 </body>
