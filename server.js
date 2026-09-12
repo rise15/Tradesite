@@ -669,7 +669,7 @@ app.get('/', (req, res) => {
       const node = document.createElement('div');
       node.id = 'digit-node-' + i;
       node.className = 'digit-badge bg-gray-950 border border-gray-800 rounded-lg p-2 text-center';
-      node.innerHTML = `<div class="text-sm font-bold text-gray-300">\${i}</div>`;
+      node.innerHTML = `<div class="text-sm font-bold text-gray-300">${i}</div>`;
       streamContainer.appendChild(node);
     }
 
