@@ -10,16 +10,16 @@ const wss = new WebSocket.Server({ server });
 app.use(express.json());
 
 // -------------------------------------------------------------
-// SAFARICOM DARAJA M-PESA CONFIGURATION
+// SAFARICOM DARAJA M-PESA CONFIGURATION (Loaded from environment variables)
 // -------------------------------------------------------------
 const MPESA_CONFIG = {
-  consumerKey: "YOUR_CONSUMER_KEY",       // Replace with Daraja Consumer Key
-  consumerSecret: "YOUR_CONSUMER_SECRET", // Replace with Daraja Consumer Secret
-  passkey: "YOUR_LIPA_NA_MPESA_PASSKEY",  // Replace with Daraja Passkey
-  shortCode: "174379",                   // Sandbox Paybill/Till (or live Shortcode)
-  recipientPhone: "254703606219",         // Raphael Mugambi (0703606219)
-  callbackUrl: "https://your-domain.com/api/wallet/mpesa-callback", // Public HTTPS URL
-  env: "sandbox"                          // "sandbox" or "production"
+  consumerKey: process.env.DARAJA_CONSUMER_KEY || "p6FOx2TbP38NSLz7DEMkSd6yyYXjGFXITVmF0wU0pAqkTidJ",
+  consumerSecret: process.env.DARAJA_CONSUMER_SECRET || "TfNJnsqFr4aOU40XTTacvKy4PqRdgy8lwCa67SJNcKAGB6aBKSNsGGGuuzQVOiBe",
+  passkey: process.env.DARAJA_PASSKEY || "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919",
+  shortCode: process.env.DARAJA_BUSINESS_SHORTCODE || "174379",
+  recipientPhone: "254703606219", // Raphael Mugambi (0703606219)
+  callbackUrl: "https://your-domain.com/api/wallet/mpesa-callback",
+  env: "sandbox"
 };
 
 // Helper: Get Safaricom OAuth Token
@@ -100,7 +100,6 @@ app.post('/api/auth/register', (req, res) => {
   const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
   if (existingUser) return res.status(400).json({ error: "Email is already registered." });
 
-  // Format mobile to standard Safaricom format (e.g., 254712345678)
   let formattedMobile = mobile.replace(/[^0-9]/g, '');
   if (formattedMobile.startsWith('0')) formattedMobile = '254' + formattedMobile.slice(1);
 
@@ -322,7 +321,6 @@ app.post('/api/wallet/stk-push', async (req, res) => {
   try {
     const accessToken = await getMpesaToken();
 
-    // Format Timestamp: YYYYMMDDHHmmss
     const date = new Date();
     const timestamp = date.getFullYear().toString() +
       String(date.getMonth() + 1).padStart(2, '0') +
@@ -337,16 +335,15 @@ app.post('/api/wallet/stk-push', async (req, res) => {
       ? 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
       : 'https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest';
 
-    // PartyB is set to MPESA_CONFIG.recipientPhone (254703606219 - Raphael Mugambi)
     const stkPayload = {
       BusinessShortCode: MPESA_CONFIG.shortCode,
       Password: password,
       Timestamp: timestamp,
-      TransactionType: 'CustomerPayBillOnline', // Change to 'CustomerBuyGoodsOnline' if using Till Number
+      TransactionType: 'CustomerPayBillOnline',
       Amount: numAmount,
-      PartyA: user.mobile,                             // User's Phone Number (Payer)
-      PartyB: MPESA_CONFIG.recipientPhone,             // 254703606219 - Raphael Mugambi (Recipient)
-      PhoneNumber: user.mobile,                        // Phone receiving the STK prompt
+      PartyA: user.mobile,
+      PartyB: MPESA_CONFIG.recipientPhone,
+      PhoneNumber: user.mobile,
       CallBackURL: MPESA_CONFIG.callbackUrl,
       AccountReference: user.id,
       TransactionDesc: 'TraderScheme Deposit'
@@ -371,7 +368,7 @@ app.post('/api/wallet/stk-push', async (req, res) => {
   }
 });
 
-// Safaricom Callback Endpoint (Handles PIN entry response from phone)
+// Safaricom Callback Endpoint
 app.post('/api/wallet/mpesa-callback', (req, res) => {
   const callbackData = req.body.Body.stkCallback;
   
@@ -428,7 +425,7 @@ app.post('/api/wallet/withdraw', (req, res) => {
 });
 
 // -------------------------------------------------------------
-// FRONTEND INTERFACE
+// FRONTEND INTERFACE & WEBSOCKET CLIENT
 // -------------------------------------------------------------
 app.get('/', (req, res) => {
   res.send(`
@@ -496,7 +493,6 @@ app.get('/', (req, res) => {
 
     <!-- BALANCE & PROFIT/LOSS PANEL -->
     <div class="flex items-center gap-4">
-      
       <div class="text-right border-r border-gray-800 pr-4">
         <div class="text-[10px] uppercase font-bold text-gray-400">Total Profit / Loss</div>
         <div id="totalPLDisplay" class="text-sm font-black text-gray-300">$0.00</div>
@@ -523,7 +519,6 @@ app.get('/', (req, res) => {
 
   <!-- WORKSPACE -->
   <div class="grid grid-cols-12 flex-1 overflow-hidden">
-    
     <!-- LEFT PANEL -->
     <div class="col-span-8 p-4 flex flex-col justify-between bg-gray-950/40 border-r border-gray-800">
       <div class="flex justify-between items-center mb-2">
@@ -551,7 +546,6 @@ app.get('/', (req, res) => {
     <!-- RIGHT PANEL -->
     <div class="col-span-4 bg-gray-900 p-5 flex flex-col justify-between overflow-y-auto">
       <div class="space-y-4">
-        
         <div>
           <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase">Contract Type</label>
           <select id="tradeTypeSelect" onchange="updateTradeForm()" class="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-sm font-bold text-white outline-none">
@@ -610,7 +604,6 @@ app.get('/', (req, res) => {
           <button onclick="executeTradeWithSide('EVEN')" class="bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-black text-sm uppercase">EVEN</button>
           <button onclick="executeTradeWithSide('ODD')" class="bg-red-600 hover:bg-red-500 py-3 rounded-lg font-black text-sm uppercase">ODD</button>
         </div>
-
       </div>
 
       <div class="mt-4 border-t border-gray-800 pt-3">
@@ -704,7 +697,7 @@ app.get('/', (req, res) => {
       }
     });
 
-    // WebSocket
+    // WebSocket Connection Handling
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(\`\${protocol}//\${window.location.host}\`);
 
@@ -759,36 +752,54 @@ app.get('/', (req, res) => {
       }
     };
 
+    // UI Helper Functions
+    function toggleAuthMode() {
+      authMode = authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN';
+      document.getElementById('authTitle').innerText = authMode === 'LOGIN' ? 'TRADERSCHEME LOGIN' : 'TRADERSCHEME REGISTER';
+      document.getElementById('authSubmitBtn').innerText = authMode === 'LOGIN' ? 'Log In' : 'Register Account';
+      document.getElementById('authToggleBtn').innerText = authMode === 'LOGIN' ? 'Need an account? Register' : 'Already have an account? Log In';
+      document.getElementById('mobileFieldWrapper').classList.toggle('hidden', authMode === 'LOGIN');
+    }
+
+    async function submitAuth() {
+      const email = document.getElementById('authEmail').value;
+      const password = document.getElementById('authPassword').value;
+      const mobile = document.getElementById('authMobile').value;
+      const endpoint = authMode === 'LOGIN' ? '/api/auth/login' : '/api/auth/register';
+      const body = authMode === 'LOGIN' ? { email, password } : { email, mobile, password };
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (data.success) {
+          currentUser = data.user;
+          document.getElementById('authModal').classList.add('hidden');
+          updateBalanceDisplay();
+        } else {
+          alert(data.error);
+        }
+      } catch (err) {
+        alert('Authentication error occurred.');
+      }
+    }
+
     function updateBalanceDisplay() {
       if (!currentUser) return;
-
-      const pl = currentUser.totalPL || 0;
-      const plEl = document.getElementById('totalPLDisplay');
-      plEl.innerText = (pl >= 0 ? '+$' : '-$') + Math.abs(pl).toFixed(2);
-      plEl.className = pl >= 0 ? "text-sm font-black text-green-400" : "text-sm font-black text-red-400";
-
-      if (currentAccountType === 'DEMO') {
-        document.getElementById('balanceDisplay').innerText = '$' + currentUser.demoBalance.toFixed(2);
-        document.getElementById('accountTypeLabel').innerText = 'Demo Account';
-        document.getElementById('accountTypeLabel').className = 'text-[10px] uppercase font-bold text-blue-400';
-        document.getElementById('resetDemoBtn').classList.remove('hidden');
-      } else {
-        document.getElementById('balanceDisplay').innerText = '$' + currentUser.realBalance.toFixed(2);
-        document.getElementById('accountTypeLabel').innerText = 'Real Account';
-        document.getElementById('accountTypeLabel').className = 'text-[10px] uppercase font-bold text-green-400';
-        document.getElementById('resetDemoBtn').classList.add('hidden');
-      }
+      const isDemo = currentAccountType === 'DEMO';
+      const bal = isDemo ? currentUser.demoBalance : currentUser.realBalance;
+      document.getElementById('balanceDisplay').innerText = '$' + parseFloat(bal).toFixed(2);
+      document.getElementById('accountTypeLabel').innerText = isDemo ? 'Demo Account' : 'Real Account';
+      document.getElementById('totalPLDisplay').innerText = '$' + parseFloat(currentUser.totalPL || 0).toFixed(2);
     }
 
     function setAccountType(type) {
       currentAccountType = type;
-      if (type === 'DEMO') {
-        document.getElementById('btnAccountDemo').className = 'px-3 py-1 text-xs font-bold rounded-md bg-blue-600 text-white';
-        document.getElementById('btnAccountReal').className = 'px-3 py-1 text-xs font-bold rounded-md text-gray-400 hover:text-white';
-      } else {
-        document.getElementById('btnAccountReal').className = 'px-3 py-1 text-xs font-bold rounded-md bg-green-600 text-white';
-        document.getElementById('btnAccountDemo').className = 'px-3 py-1 text-xs font-bold rounded-md text-gray-400 hover:text-white';
-      }
+      document.getElementById('btnAccountDemo').className = type === 'DEMO' ? 'px-3 py-1 text-xs font-bold rounded-md bg-blue-600 text-white' : 'px-3 py-1 text-xs font-bold rounded-md text-gray-400 hover:text-white';
+      document.getElementById('btnAccountReal').className = type === 'REAL' ? 'px-3 py-1 text-xs font-bold rounded-md bg-blue-600 text-white' : 'px-3 py-1 text-xs font-bold rounded-md text-gray-400 hover:text-white';
       updateBalanceDisplay();
     }
 
@@ -806,42 +817,28 @@ app.get('/', (req, res) => {
       }
     }
 
-    function toggleAutoTrade() {
-      const isChecked = document.getElementById('autoTradeToggle').checked;
-      const settings = document.getElementById('autoTradeSettings');
-      if (isChecked) {
-        settings.classList.remove('hidden');
-        autoTradeActive = true;
-        autoTradeRemaining = parseInt(document.getElementById('autoTradeRuns').value, 10) || 5;
-        document.getElementById('autoTradeStatus').innerText = autoTradeRemaining;
-      } else {
-        settings.classList.add('hidden');
-        autoTradeActive = false;
-      }
-    }
-
     function changeMarket() {
       activeSymbol = document.getElementById('marketSelect').value;
-      const title = document.getElementById('marketSelect').options[document.getElementById('marketSelect').selectedIndex].text;
-      document.getElementById('activeMarketTitle').innerText = title;
+      const select = document.getElementById('marketSelect');
+      document.getElementById('activeMarketTitle').innerText = select.options[select.selectedIndex].text;
     }
 
     function updateTradeForm() {
       const type = document.getElementById('tradeTypeSelect').value;
-      const targetWrapper = document.getElementById('digitTargetWrapper');
-      const actionBox = document.getElementById('actionButtonsContainer');
+      const wrapper = document.getElementById('digitTargetWrapper');
+      const container = document.getElementById('actionButtonsContainer');
 
-      if (type === 'EVEN') {
-        targetWrapper.classList.add('hidden');
-        actionBox.innerHTML = \`
-          <button onclick="executeTradeWithSide('EVEN')" class="bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-black text-sm uppercase">EVEN</button>
-          <button onclick="executeTradeWithSide('ODD')" class="bg-red-600 hover:bg-red-500 py-3 rounded-lg font-black text-sm uppercase">ODD</button>
+      if (type === 'OVER_UNDER') {
+        wrapper.classList.remove('hidden');
+        container.innerHTML = \`
+          <button onclick="executeTradeWithSide('OVER')" class="bg-emerald-600 hover:bg-emerald-500 py-3 rounded-lg font-black text-sm uppercase">OVER</button>
+          <button onclick="executeTradeWithSide('UNDER')" class="bg-amber-600 hover:bg-amber-500 py-3 rounded-lg font-black text-sm uppercase">UNDER</button>
         \`;
       } else {
-        targetWrapper.classList.remove('hidden');
-        actionBox.innerHTML = \`
-          <button onclick="executeTradeWithSide('OVER')" class="bg-green-600 hover:bg-green-500 py-3 rounded-lg font-black text-sm uppercase">OVER</button>
-          <button onclick="executeTradeWithSide('UNDER')" class="bg-yellow-600 hover:bg-yellow-500 py-3 rounded-lg font-black text-sm uppercase">UNDER</button>
+        wrapper.classList.add('hidden');
+        container.innerHTML = \`
+          <button onclick="executeTradeWithSide('EVEN')" class="bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-black text-sm uppercase">EVEN</button>
+          <button onclick="executeTradeWithSide('ODD')" class="bg-red-600 hover:bg-red-500 py-3 rounded-lg font-black text-sm uppercase">ODD</button>
         \`;
       }
       updateCalculations();
@@ -849,34 +846,21 @@ app.get('/', (req, res) => {
 
     function updateCalculations() {
       const stake = parseFloat(document.getElementById('stakeInput').value) || 0;
-      const type = document.getElementById('tradeTypeSelect').value;
-      const digit = parseInt(document.getElementById('targetDigitInput').value, 10);
-      let multiplier = 0.80;
-
-      if (type === 'OVER_UNDER') {
-        if (digit === 1 || digit === 9) multiplier = 0.30;
-        else if (digit >= 3 && digit <= 6) multiplier = 0.50;
-        else multiplier = 0.50;
-      }
-
-      const payout = stake + (stake * multiplier);
       document.getElementById('summaryStake').innerText = '$' + stake.toFixed(2);
-      document.getElementById('summaryPayout').innerText = '$' + payout.toFixed(2) + ' (' + (multiplier * 100).toFixed(0) + '%)';
+      document.getElementById('summaryPayout').innerText = '$' + (stake * 1.8).toFixed(2) + ' (80%)';
     }
 
-    async function executeTradeWithSide(selectedType) {
-      if (!currentUser) return alert("Please log in first.");
-
-      autoTradeSide = selectedType;
-
+    async function executeTradeWithSide(side) {
+      if (!currentUser) return alert('Please log in first.');
+      autoTradeSide = side;
       const payload = {
         userId: currentUser.id,
         accountType: currentAccountType,
         symbol: activeSymbol,
-        tradeType: selectedType,
-        stake: parseFloat(document.getElementById('stakeInput').value),
-        durationSeconds: parseInt(document.getElementById('durationInput').value, 10),
-        targetDigit: parseInt(document.getElementById('targetDigitInput').value, 10)
+        tradeType: side,
+        stake: document.getElementById('stakeInput').value,
+        durationSeconds: document.getElementById('durationInput').value,
+        targetDigit: document.getElementById('targetDigitInput').value
       };
 
       const res = await fetch('/api/trade/execute', {
@@ -884,84 +868,48 @@ app.get('/', (req, res) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-
       const data = await res.json();
-      if (data.error) return alert(data.error);
-
-      currentUser.demoBalance = data.demoBalance;
-      currentUser.realBalance = data.realBalance;
-      updateBalanceDisplay();
+      if (!data.success) alert(data.error);
     }
 
-    function logTradeResult(trade) {
-      const log = document.getElementById('tradesLog');
-      const item = document.createElement('div');
-      item.className = "bg-gray-950 p-2.5 rounded-lg border border-gray-800 text-xs";
-      
-      const isWin = trade.status === 'WIN';
-      const resultText = isWin ? '+$' + trade.netResult.toFixed(2) : '-$' + Math.abs(trade.payout).toFixed(2);
-
-      item.innerHTML = \`
-        <div class="flex justify-between font-bold">
-          <span>\${trade.symbolName} (\${trade.tradeType})</span>
-          <span class="\${isWin ? 'text-green-400' : 'text-red-400'}">\${trade.status} (\${resultText})</span>
-        </div>
-        <div class="text-[10px] text-gray-500 mt-1">
-          Entry: \${trade.entryPrice} | Exit: \${trade.exitPrice}
-        </div>
-      \`;
-      log.prepend(item);
-    }
-
-    function toggleAuthMode() {
-      authMode = (authMode === 'LOGIN') ? 'REGISTER' : 'LOGIN';
-      document.getElementById('authTitle').innerText = authMode === 'REGISTER' ? 'CREATE WORKSTATION ACCOUNT' : 'TRADERSCHEME LOGIN';
-      document.getElementById('authSubmitBtn').innerText = authMode === 'REGISTER' ? 'Register Account' : 'Log In';
-      document.getElementById('authToggleBtn').innerText = authMode === 'REGISTER' ? 'Already have an account? Login' : 'Need an account? Register';
-      
-      if (authMode === 'REGISTER') document.getElementById('mobileFieldWrapper').classList.remove('hidden');
-      else document.getElementById('mobileFieldWrapper').classList.add('hidden');
-    }
-
-    async function submitAuth() {
-      const email = document.getElementById('authEmail').value.trim();
-      const mobile = document.getElementById('authMobile').value.trim();
-      const password = document.getElementById('authPassword').value.trim();
-
-      const endpoint = authMode === 'REGISTER' ? '/api/auth/register' : '/api/auth/login';
-      const bodyPayload = authMode === 'REGISTER' ? { email, mobile, password } : { email, password };
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyPayload)
-      });
-
-      const data = await res.json();
-      if (data.error) return alert(data.error);
-
-      currentUser = data.user;
-      updateBalanceDisplay();
-      document.getElementById('authModal').classList.add('hidden');
+    function toggleAutoTrade() {
+      autoTradeActive = document.getElementById('autoTradeToggle').checked;
+      document.getElementById('autoTradeSettings').classList.toggle('hidden', !autoTradeActive);
+      if (autoTradeActive) {
+        autoTradeRemaining = parseInt(document.getElementById('autoTradeRuns').value, 10);
+        document.getElementById('autoTradeStatus').innerText = autoTradeRemaining;
+      }
     }
 
     async function runAiScan() {
       const res = await fetch('/api/ai/deep-scan');
       const data = await res.json();
       if (data.success) {
-        alert(\`AI Scan Analysis Complete!\n\nBest Market: \${data.recommendation.name}\nRecommended Option: \${data.recommendation.bestContract}\nConfidence Rate: \${data.recommendation.confidence}%\`);
+        alert(\`AI Top Pick: \${data.recommendation.name}\\nContract: \${data.recommendation.bestContract}\\nConfidence: \${data.recommendation.confidence}%\`);
       }
     }
 
+    function logTradeResult(trade) {
+      const log = document.getElementById('tradesLog');
+      const item = document.createElement('div');
+      const isWin = trade.status === 'WIN';
+      item.className = \`text-xs p-2 rounded-lg border \${isWin ? 'bg-green-950/40 border-green-800 text-green-300' : 'bg-red-950/40 border-red-800 text-red-300'} flex justify-between items-center\`;
+      item.innerHTML = \`
+        <div>
+          <span class="font-bold">\${trade.symbolName}</span> (\${trade.tradeType})
+          <div class="text-[10px] text-gray-400">Exit Digit: \${trade.exitDigit}</div>
+        </div>
+        <div class="font-bold">\${isWin ? '+' : ''}\${trade.netResult.toFixed(2)} USD</div>
+      \`;
+      log.prepend(item);
+    }
+
     function openDepositModal() {
-      if (!currentUser) return alert("Please log in first.");
-      document.getElementById('depositMobileDisplay').value = currentUser.mobile || "No number registered";
+      if (!currentUser) return alert('Log in first.');
+      document.getElementById('depositMobileDisplay').value = currentUser.mobile;
       document.getElementById('depositModal').classList.remove('hidden');
     }
-    
-    function closeDepositModal() {
-      document.getElementById('depositModal').classList.add('hidden');
-    }
+    function closeDepositModal() { document.getElementById('depositModal').classList.add('hidden'); }
 
     async function processStkPushDeposit() {
       const amount = document.getElementById('depositAmount').value;
@@ -970,23 +918,17 @@ app.get('/', (req, res) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: currentUser.id, amount })
       });
-
       const data = await res.json();
-      if (data.error) return alert(data.error);
-
-      alert(data.message);
-      closeDepositModal();
+      alert(data.message || data.error);
+      if (data.success) closeDepositModal();
     }
 
     function openWithdrawModal() {
-      if (!currentUser) return alert("Please log in first.");
-      document.getElementById('withdrawMobileDisplay').value = currentUser.mobile || "No number registered";
+      if (!currentUser) return alert('Log in first.');
+      document.getElementById('withdrawMobileDisplay').value = currentUser.mobile;
       document.getElementById('withdrawModal').classList.remove('hidden');
     }
-
-    function closeWithdrawModal() {
-      document.getElementById('withdrawModal').classList.add('hidden');
-    }
+    function closeWithdrawModal() { document.getElementById('withdrawModal').classList.add('hidden'); }
 
     async function processWithdrawal() {
       const amount = document.getElementById('withdrawAmount').value;
@@ -995,24 +937,21 @@ app.get('/', (req, res) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: currentUser.id, amount })
       });
-
       const data = await res.json();
-      if (data.error) return alert(data.error);
-
-      currentUser.realBalance = data.realBalance;
-      updateBalanceDisplay();
-      alert(data.message);
-      closeWithdrawModal();
+      alert(data.message || data.error);
+      if (data.success) {
+        currentUser.realBalance = data.realBalance;
+        updateBalanceDisplay();
+        closeWithdrawModal();
+      }
     }
-
-    updateTradeForm();
   </script>
 </body>
 </html>
   `);
 });
 
-const PORT = process.env.PORT || 10000;
-server.listen(PORT, '0.0.0.0', () => {
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
